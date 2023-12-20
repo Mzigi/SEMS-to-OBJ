@@ -24,7 +24,7 @@ convertToObjButton.addEventListener("click", function() {
                     tco = Number(tcoInput.value)
                 }
                 let buffer: ArrayBuffer = await fileInput.files[i].arrayBuffer()
-                let convertedMesh = JSONtoOBJ(SEMStoJSON(buffer, tco))
+                let convertedMesh = JSONtoOBJ(SEMStoJSON(buffer, tco), fileInput.files[i].name)
                 console.log(convertedMesh.obj)
                 console.log(convertedMesh.mtl)
                 download(fileInput.files[i].name+".obj", convertedMesh.obj)

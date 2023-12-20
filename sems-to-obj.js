@@ -128,8 +128,8 @@ function SEMStoJSON(buffer, textureCountOverride) {
     console.log(SMESjson);
     return SMESjson;
 }
-function JSONtoOBJ(SMESjson) {
-    var objText = "mtllib mesh.mtl";
+function JSONtoOBJ(SMESjson, fileName) {
+    var objText = "mtllib " + fileName + ".mtl";
     var mtlText = "";
     var fCount = 0;
     for (var i = 0; i < SMESjson.meshes.length; i++) {

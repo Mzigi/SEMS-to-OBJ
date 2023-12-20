@@ -62,7 +62,7 @@ convertToObjButton.addEventListener("click", function () {
                                 return [4 /*yield*/, fileInput.files[i].arrayBuffer()];
                             case 1:
                                 buffer = _a.sent();
-                                convertedMesh = JSONtoOBJ(SEMStoJSON(buffer, tco));
+                                convertedMesh = JSONtoOBJ(SEMStoJSON(buffer, tco), fileInput.files[i].name);
                                 console.log(convertedMesh.obj);
                                 console.log(convertedMesh.mtl);
                                 download(fileInput.files[i].name + ".obj", convertedMesh.obj);

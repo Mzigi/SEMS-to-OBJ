@@ -155,8 +155,8 @@ function SEMStoJSON(buffer: ArrayBuffer, textureCountOverride?: number) {
     return SMESjson
 }
 
-function JSONtoOBJ(SMESjson: any): any {
-    let objText = "mtllib mesh.mtl"
+function JSONtoOBJ(SMESjson: any, fileName: string): any {
+    let objText = "mtllib "+fileName+".mtl"
     let mtlText = ""
 
     let fCount = 0
