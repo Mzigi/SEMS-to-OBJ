@@ -1,0 +1,244 @@
+<html>
+<body>
+<input id="fileInput" type="file">
+<button id="convertToObj">Convert</button>
+<script>
+class simpleView {
+    constructor (buffer) {
+        this.view = new DataView(buffer)
+        this.vO = 0
+    }
+
+    x() {
+        let sL = this.l()
+        let sB = this.view.buffer.slice(this.vO, this.vO + sL)
+        let s = new TextDecoder().decode(sB)
+        
+        this.vO += sL
+
+        return s
+    }
+
+    f3() {
+        let v = this.view.getFloat32(this.vO, true)
+        this.vO += 4
+        
+        return v
+    }
+
+    fq() {
+        let v = this.view.getInt32(this.vO, true)
+        this.vO += 4
+        
+        return v
+    }
+
+    l() {
+        let v = this.view.getUint32(this.vO, true)
+        this.vO += 4
+        
+        return v
+    }
+
+    k() {
+        let v = this.view.getUint16(this.vO, true)
+        this.vO += 2
+        
+        return v
+    }
+
+    q() {
+        let v = this.view.getUint8(this.vO)
+        this.vO += 1
+        
+        return v
+    }
+}
+
+function SEMStoJSON(buffer) {
+    let Sj = {
+        "mCount": 0,
+        "mes": [],
+    }
+
+    let y = new Uint8Array(buffer)
+    if (y[0] == 83 && y[1] == 69 && y[2] == 77 && y[3] == 83) {
+        let view = new simpleView(buffer)
+        view.vO = 12
+
+        Sj.mCount = view.q()
+        
+        view.vO += 3
+        
+        //mes
+        for (let i = 0; i < Sj.mCount; i++) {
+            let m = {
+                "vC": 0,
+                "z": 0,
+                "tc": 0,
+                "v": [],
+                "vn": [],
+                "vt": [],
+                "i": [],
+                "tH": {},
+                "bb": [],
+                "t1e": false, //diffuse
+                "t2e": false, //normal
+                "t3e": false, //specular
+                "t4e": false, //height (unused?)
+            }
+            view.vO += 12
+
+            //bounding box
+            let bb1 = {"x": -view.f3(), "y": view.f3(), "z": view.f3()}
+            m.bb.push(bb1)
+
+            let bb2 = {"x": -view.f3(), "y": view.f3(), "z": view.f3()}
+            m.bb.push(bb2)
+
+            //texture data
+            view.vO += 12
+            /*for (let j = 0; j < 4; j++) {
+                m["texture" + (j + 1) + "Exists"] = view.q() == 128
+            }*/
+            //tH that exist
+            let exT = view.fq()
+
+            if (exT == -8421505) {
+                m.tc = 1
+                m.t1e = true
+            } else if (exT == -8355712) {
+                m.tc = 3
+                m.t1e = true
+                m.t2e = true
+                m.t3e = true
+            } else {
+                m.tc = 3
+            }
+
+            view.vO  += 16
+            for (let j = 0; j < 4; j++) { //check individual tH
+                if (m["t" + (j + 1) + "e"]) {
+
+                    //skip padding?
+                    if (j > 0) {
+                        view.vO += 3
+                    }
+
+                    view.vO += 1
+
+                    //get texture string
+                    let txP = view.x()
+                    m.tH[j] = txP
+
+                    view.vO += 3
+                }
+            }
+            view.vO += 58 + 4 - m.tc
+
+            //geometry
+            m.vC = view.l()
+            for (let j = 0; j < m.vC; j++) { // 36 bytes, v, vn, FFFF, vt
+                m.v.push({"x": -view.f3(), "y": view.f3(), "z": view.f3()})
+                m.vn.push({"x": -view.f3(), "y": view.f3(), "z": view.f3()})
+                view.vO += 4
+                m.vt.push({"x": view.f3(), "y": -view.f3()})
+            }
+
+            //indices
+            m.z = view.fq() / 3
+            for (let j = 0; j < m.z; j++) {
+                let t = [view.k(), view.k(), view.k()]
+                t = [t[2] + 1,t[1] + 1,t[0] + 1] //flip triangle and add 1 so its like obj
+                m.i.push(t)
+            }
+
+            //finally push the finished m
+            Sj.mes.push(m)
+        }
+    }
+
+    return Sj
+}
+
+function JSONtoOBJ(Sj) {
+    let o = "mtllib m.mtl"
+    let k = ""
+
+    let fC = 0
+
+    for (let i = 0; i < Sj.mes.length; i++) {
+        let m = Sj.mes[i]
+
+        //mtl
+        k += "\nnewmtl m"+i
+        k += "\nillum 4\nKd 0.0 0.0 0.0\nKa 0.0 0.0 0.0\nTf 1.0 1.0 1.0\nNi 1.0\nKs 0.0 0.0 0.0"
+        if (m.t1e) {
+            let texture1Path = m.tH[0].split("/")[m.tH[0].split("/").length - 1]
+            k += "\nmap_Kd "+texture1Path
+        }
+        if (m.t2e) {
+            let texture2Path = m.tH[1].split("/")[m.tH[1].split("/").length - 1]
+            k += "\nbump  -bm 1 "+texture2Path
+        }
+        if (m.t3e) {
+            let texture3Path = m.tH[2].split("/")[m.tH[2].split("/").length - 1]
+            k += "\nmap_Ks "+texture3Path
+        }
+
+        o +=  "\nusemtl m"+i
+
+        //v, vn, vt
+        for (let j = 0; j < m.vC; j++) {
+            let u = m.v[j]
+            let r = m.vn[j]
+            let b = m.vt[j]
+
+            o += "\nv "+u.x+" "+u.y+" "+u.z
+            o += "\nvn "+r.x+" "+r.y+" "+r.z
+            o += "\nvt "+b.x+" "+b.y
+        }
+
+        //i
+        for (let j = 0; j < m.z; j++) {
+            let i0 = m.i[j][0] + fC
+            let i1 = m.i[j][1] + fC
+            let i2 = m.i[j][2] + fC
+
+            o += `\nf ${i0}/${i0}/${i0} ${i1}/${i1}/${i1} ${i2}/${i2}/${i2}`
+        }
+
+        fC += m.i.length
+    }
+
+    return {"obj": o, "mtl": k}
+}
+
+let fI = document.getElementById("fileInput")
+
+function Ds(filename, text) {
+    let e = document.createElement('a');
+    e.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    e.setAttribute('download', filename);
+  
+    e.style.display = 'none';
+    document.body.appendChild(e);
+  
+    e.click();
+  
+    document.body.removeChild(e);
+  }
+
+document.getElementById("convertToObj").addEventListener("click", function() {
+    let f = fI.files[0]
+    async function loadSEMS() {
+        let cm = JSONtoOBJ(SEMStoJSON(await f.arrayBuffer()))
+        Ds(f.name+".obj", cm.obj)
+        Ds(f.name+".mtl", cm.mtl)
+    }
+
+    loadSEMS()
+})
+</script>
+</body>
+</html>
